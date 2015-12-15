@@ -50,9 +50,10 @@
 
 #include <cstring>
 #include <sstream>
-
+#include <vector>
 #include <ncurses.h>
 #include <mutex>
+
 
 class Disp
 {
@@ -75,11 +76,12 @@ public:
     mx = 0;
     my = 0;
 
-    vi_w = newwin ( 10+2, max_x, 0, 0 );
+    vi_w = newwin ( 10+2, max_x/2, 0, 0 );
     log_w = newwin ( max_y- ( 10+2 ) - 3, max_x, 10+2, 0 );
     log_iw = newwin ( max_y- ( 10+2 ) - 3 -2, max_x-2, 10+2+1, 1 );
     shell_w = newwin ( 3, max_x, 10+2+max_y- ( 10+2 ) - 3, 0 );
-
+    count_w = newwin ( 3, max_x, 0, max_x/2 );
+    realtriplets_w = newwin ( 8, max_x, 3, max_x/2 );
     start_color();
     /*
     init_pair ( 1,COLOR_WHITE, COLOR_BLUE );
@@ -108,10 +110,13 @@ public:
     wbkgd ( log_w, COLOR_PAIR ( 2 ) );
     wbkgd ( log_iw, COLOR_PAIR ( 2 ) );
     wbkgd ( shell_w, COLOR_PAIR ( 1 ) );
+    wbkgd ( count_w, COLOR_PAIR ( 4 ) );
+    wbkgd ( realtriplets_w, COLOR_PAIR ( 4 ) );
 
     nodelay ( shell_w, TRUE );
     keypad ( shell_w, TRUE );
     scrollok ( log_iw, TRUE );
+    scrollok ( realtriplets_w, TRUE );
 
     ui( );
 
@@ -123,8 +128,17 @@ public:
     delwin ( log_w );
     delwin ( log_iw );
     delwin ( shell_w );
+    delwin ( count_w );
+    delwin ( realtriplets_w );
     endwin();
   }
+  std::vector<std::string>counter;
+  int countbuffersize=0;
+  std::string counterprinter;
+  std::string countbuffer;
+  std::string realtriplets;
+  bool flag=false;
+  std::size_t trippos;
 
   void shell ( std::string msg )
   {
@@ -202,6 +216,52 @@ public:
     wrefresh ( log_iw );
     ncurses_mutex.unlock();
   }
+  
+  void realtriplets_f(std::string msg){
+  	
+	ui();
+	werase(realtriplets_w);
+	realtriplets+= "\n "+msg;
+	waddstr(realtriplets_w,realtriplets.c_str());
+	box ( realtriplets_w, 0, 0 );
+    	mvwprintw ( realtriplets_w, 0, 1, " Real Triplets " );
+    	wrefresh ( realtriplets_w );
+   
+
+  }
+  void count ( std::string msg )
+  {
+	ncurses_mutex.lock();
+	ui();
+	werase ( count_w );
+	flag=false;
+	trippos = msg.find("%> ")+3;
+	countbuffer = msg.substr(trippos);
+	if(countbuffersize==0){
+		counter.push_back(countbuffer);	
+		countbuffersize++;
+	}
+	else{		
+		for(int i=0; i!=counter.size(); i++){
+			if(counter[i]==countbuffer) {
+				flag=true;
+				break;			
+			}
+		
+		}
+	}
+	if(!flag){
+		counter.push_back(countbuffer);
+		realtriplets_f(countbuffer);
+		countbuffersize++;
+	}
+	counterprinter= "\n  "+std::to_string(countbuffersize-1);
+	waddstr ( count_w, counterprinter.c_str() );
+	box ( count_w, 0, 0 );
+        mvwprintw ( count_w, 0, 1, " Triplet counter " );
+        wrefresh ( count_w );
+        ncurses_mutex.unlock();
+  }
 
   void cg_read()
   {
@@ -251,7 +311,7 @@ private:
         mx = max_x;
         my = max_y;
 
-        wresize ( vi_w, 10+2, mx );
+        wresize ( vi_w, 10+2, mx/2 );
         mvwin ( vi_w, 0, 0 );
         werase ( vi_w );
 
@@ -266,12 +326,26 @@ private:
         wresize ( shell_w, 3, mx );
         mvwin ( shell_w, 10+2+my- ( 10+2 ) - 3, 0 );
         werase ( shell_w );
+	
+	wresize ( count_w, 3, mx );
+        mvwin ( count_w, 0, max_x/2);
+        werase ( count_w );
+	
+	wresize ( realtriplets_w, 9, mx );
+        mvwin ( realtriplets_w, 4, max_x/2);
+        werase ( realtriplets_w );
 
         box ( vi_w, 0, 0 );
         mvwprintw ( vi_w, 0, 1, " Samu's visual imagery " );
 
         box ( log_w, 0, 0 );
         mvwprintw ( log_w, 0, 1, " Samu's answers " );
+	
+	box ( count_w, 0, 0 );
+        mvwprintw ( count_w, 0, 1, " Triplet counter " );
+	
+	box ( realtriplets_w, 0, 0 );
+        mvwprintw ( realtriplets_w, 0, 1, " Real Triplets " );
 
         box ( shell_w, 0, 0 );
         mvwprintw ( shell_w, 0, 1, " Caregiver shell " );
@@ -281,7 +355,9 @@ private:
         wrefresh ( log_w );
         wrefresh ( log_iw );
         wrefresh ( shell_w );
-      }
+	wrefresh ( count_w );
+	wrefresh ( realtriplets_w );      
+}
   }
 
   std::mutex ncurses_mutex;
@@ -289,6 +365,8 @@ private:
   WINDOW *vi_w;
   WINDOW *log_w, *log_iw;
   WINDOW *shell_w;
+  WINDOW *count_w;
+  WINDOW *realtriplets_w;
   int mx {0}, my {0};
 };
 

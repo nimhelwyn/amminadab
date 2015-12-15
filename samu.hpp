@@ -648,6 +648,7 @@ private:
 
 #ifdef DISP_CURSES
       samu.disp.log ( r );
+      samu.disp.count(r);
 #endif
 
 #else
